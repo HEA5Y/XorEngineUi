@@ -7,12 +7,17 @@ qt_standard_project_setup()
 
 qt_add_executable(XorEngineUI
     WIN32 MACOSX_BUNDLE
+    README.md
     main.cpp
+
     gui/mainwindow.cpp
     gui/mainwindow.h
+
     core/libXorEngine.cpp
     core/libXorEngine.h
-    README.md
+
+    core/worker/xorworker.h
+    core/worker/xorworker.cpp
 
 )
 

@@ -14,3 +14,6 @@
 
 !/core/libXorEngine.cpp
 !/core/libXorEngine.h
+
+!/core/worker/xorworker.cpp
+!/core/worker/xorworker.h
