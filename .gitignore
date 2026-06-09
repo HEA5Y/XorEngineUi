@@ -1,12 +1,16 @@
-# 1. Игнорируем абсолютно ВСЁ на свете
 *
-# Игнорируем все папки (включая build, .qtc_clangd и т.д.)
-/*/
+!/gui/
+!/core/
 
-# 2. А теперь добавляем исключения (то, что Гит ОБЯЗАН забирать)
 !/.gitignore
 !/CMakeLists.txt
 !/main.cpp
-!/mainwindow.cpp
-!/mainwindow.h
+!/README.md
 !/*.ts
+
+!/gui/mainwindow.cpp
+!/gui/mainwindow.h
+!/gui/mainwindow.ui
+
+!/core/libXorEngine.cpp
+!/core/libXorEngine.h
