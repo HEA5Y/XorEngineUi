@@ -18,6 +18,7 @@ qt_add_executable(XorEngineUI
 
     core/worker/xorworker.h
     core/worker/xorworker.cpp
+    core/TaskConfig.h
 
 )
 

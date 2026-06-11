@@ -16,7 +16,13 @@
 #include <QSpinBox>
 #include <QListWidget>
 #include <QProgressBar>
-
+#include <QFileDialog>
+#include <QThread>
+#include <QFileSystemWatcher>
+#include <QTimer>
+#include <QSet>
+#include "..\core\TaskConfig.h"
+#include "../core/worker/xorworker.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -27,35 +33,60 @@ QT_END_NAMESPACE
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
+
+public:
+    MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
+
+signals:
+    void filesAdded(const QStringList &files);
+
+private slots:
+    void onBrowseSearch();
+    void onBrowseSave();
+    void onStart();
+    void onPauseToggle();
+    void onStop();
+    void onLogMessage(const QString &message);
+    void onProgressUpdated(int value);
+    void onWorkerFinished();
+    void updateFileList();
+
 private:
+    void setupConnections();
+    void setupWatcher(const QString &path);
+    void refreshComboBoxFiles(const QString &path);
+
+
     // 1 ЧАСТЬ ОКНА_____________
     QGroupBox* m_groupPaths;
     QLineEdit* m_lineSearchPath;
     QPushButton* m_btnBrowseSearch;
     QLineEdit* m_lineSavePath;
     QPushButton* m_btnBrowseSave;
+
     // 2 ЧАСТЬ ОКНА_____________
-    //левая
+    // левая
     QGroupBox* m_groupOptions;
     QLineEdit* m_lineHex;
     QComboBox* m_coincidenceComboBox;
     QCheckBox* m_deleteFileCheck;
 
-    //правая
+    // правая
     QGroupBox* m_groupOptionsStart;
     QRadioButton* m_radioBtnSingle;
     QRadioButton* m_radioBtnTimer;
     QSpinBox* m_spinInterval;
 
     // 3 ЧАСТЬ ОКНА_____________
-    //левая
+    // левая
     QGroupBox* m_groupListFiles;
-    QGroupBox* m_groupListLogs;
-public:
-    QString m_status;
-private:
+    QComboBox* m_comboTypeFiles;
     QListWidget* m_filesList;
-    //правая
+    QCheckBox* m_separatelyCheck;
+
+    // правая
+    QGroupBox* m_groupListLogs;
     QListWidget* m_logsList;
 
     // 4 ЧАСТЬ ОКНА_____________
@@ -66,10 +97,15 @@ private:
     QPushButton* m_btnPause;
     QPushButton* m_btnStop;
 
+    // Переменные состояния
+    bool m_isProcessing = false;
+    bool m_isPaused = false;
 
-public:
-    explicit MainWindow(QWidget *parent = nullptr);
-    ~MainWindow() override;
-
+    TaskConfig config;
+    XorWorker* worker = nullptr;
+    QThread* m_workerThread = nullptr;
+    QFileSystemWatcher* m_fileWatcher = nullptr;
+    QTimer* m_refreshTimer = nullptr;
 };
+
 #endif // MAINWINDOW_H

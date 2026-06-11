@@ -1,17 +1,15 @@
 #pragma once 
 #include <cstdint>
+#include <fstream>
+#include <functional>
+#include <QFile>
+#include <QFileInfo>
 
-#ifdef BUILD_DLL
-    #define DLL_EXPORT __declspec(dllexport)
-#else
-    #define DLL_EXPORT __declspec(dllimport) 
-#endif
-
-class DLL_EXPORT XorEngine
+class XorEngine
 {
 public:
     XorEngine();
     ~XorEngine();
 
-    bool crypto(const char* inputFilePath, const char* outputFilePath, uint64_t mask);
+    bool crypto(const char* inputFilePath, const char* outputFilePath, uint64_t mask, std::function<void(int)> progressCallback);
 };

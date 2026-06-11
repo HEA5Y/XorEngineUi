@@ -1,12 +1,16 @@
 *
-!/gui/
-!/core/
+
+!*/
+!**/
 
 !/.gitignore
 !/CMakeLists.txt
 !/main.cpp
 !/README.md
 !/*.ts
+!/TaskConfig.h
+!/libXorEngine.h
+!/libXorEngine.cpp
 
 !/gui/mainwindow.cpp
 !/gui/mainwindow.h
@@ -14,6 +18,5 @@
 
 !/core/libXorEngine.cpp
 !/core/libXorEngine.h
-
 !/core/worker/xorworker.cpp
 !/core/worker/xorworker.h
