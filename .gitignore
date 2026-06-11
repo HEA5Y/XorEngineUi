@@ -14,9 +14,9 @@
 
 !/gui/mainwindow.cpp
 !/gui/mainwindow.h
-!/gui/mainwindow.ui
 
 !/core/libXorEngine.cpp
 !/core/libXorEngine.h
+!/core/TaskConfig.h
 !/core/worker/xorworker.cpp
 !/core/worker/xorworker.h
