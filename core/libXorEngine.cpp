@@ -1,4 +1,5 @@
 #include "libXorEngine.h"
+#include <QThread>
 
 XorEngine::XorEngine(){
 
@@ -7,7 +8,11 @@ XorEngine::~XorEngine(){
 
 }
 
-bool XorEngine::crypto(const char* inputFilePath, const char* outputFilePath, uint64_t mask, std::function<void(int)> progressCallback)
+bool XorEngine::crypto(const char* inputFilePath, const char* outputFilePath, uint64_t mask,
+                       std::function<void(int)> progressCallback,
+                       std::atomic<bool>* isPaused,
+                       QMutex* pauseMutex,
+                       QWaitCondition* pauseCond)
 {
     std::ifstream inputPath(inputFilePath, std::ios::binary | std::ios::ate);
     if (!inputPath.is_open()) return false;
@@ -21,9 +26,16 @@ bool XorEngine::crypto(const char* inputFilePath, const char* outputFilePath, ui
     std::streamsize totalBytesProcessed = 0;
 
     while (inputPath) {
+        pauseMutex->lock();
+        while (isPaused && isPaused->load()) {
+            pauseCond->wait(pauseMutex);
+        }
+        pauseMutex->unlock();
+
         inputPath.read(buffer.data(), bufferSize);
         size_t bytesRead = inputPath.gcount();
         if (bytesRead == 0) break;
+
         size_t blocks64 = bytesRead / 8;
         uint64_t* ptr64 = reinterpret_cast<uint64_t*>(buffer.data());
         for (size_t i = 0; i < blocks64; ++i) {
@@ -47,12 +59,8 @@ bool XorEngine::crypto(const char* inputFilePath, const char* outputFilePath, ui
     inputPath.close();
     QFile finalFile(QString::fromUtf8(outputFilePath));
     QFile tempFile(tempPath);
-
-    // Если файл существовал, удаляем его
     if (finalFile.exists()) {
         if (!finalFile.remove()) return false;
     }
-
-    // Переименовываем временный в финальный
     return tempFile.rename(QString::fromUtf8(outputFilePath));
 }

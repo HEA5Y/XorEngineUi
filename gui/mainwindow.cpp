@@ -113,7 +113,6 @@ MainWindow::MainWindow(QWidget *parent)
     buttonsLayout->addWidget(m_btnStop);
     mainLayout->addWidget(m_groupDown2);
 
-    // Наблюдатели и вспомогательные таймеры
     m_fileWatcher = new QFileSystemWatcher(this);
     m_refreshTimer = new QTimer(this);
     m_refreshTimer->setInterval(2000);
@@ -133,10 +132,8 @@ void MainWindow::setupConnections()
     connect(m_btnStart, &QPushButton::clicked, this, &MainWindow::onStart);
     connect(m_btnPause, &QPushButton::clicked, this, &MainWindow::onPauseToggle);
     connect(m_btnStop, &QPushButton::clicked, this, &MainWindow::onStop);
-
     connect(m_comboTypeFiles, &QComboBox::currentTextChanged, this, &MainWindow::updateFileList);
     connect(m_separatelyCheck, &QCheckBox::toggled, this, &MainWindow::updateFileList);
-
     connect(m_fileWatcher, &QFileSystemWatcher::directoryChanged, this, &MainWindow::updateFileList);
     connect(m_refreshTimer, &QTimer::timeout, this, &MainWindow::updateFileList);
 }
@@ -189,7 +186,6 @@ void MainWindow::onStart()
             return;
         }
     } else {
-        // Режим "все файлы"
         for (int i = 0; i < m_filesList->count(); ++i) {
             selectedFiles.append(m_filesList->item(i)->text());
         }
@@ -241,23 +237,30 @@ void MainWindow::onPauseToggle()
     if (!m_isProcessing || !worker) return;
 
     m_isPaused = !m_isPaused;
+
     if (m_isPaused) {
         m_btnPause->setText("Возобновить");
     } else {
         m_btnPause->setText("Пауза");
     }
-    QMetaObject::invokeMethod(worker, "setPaused", Qt::QueuedConnection, Q_ARG(bool, m_isPaused));
+    worker->setPaused(m_isPaused);
+
+    qDebug() << "Главный поток: пауза переключена в" << m_isPaused;
 }
 
 void MainWindow::onStop()
 {
     if (!m_isProcessing) return;
 
-    m_logsList->addItem("Принудительная остановка...");
+    if (worker) {
+        worker->setPaused(false);
+    }
 
     if (m_workerThread) {
         m_workerThread->quit();
-        m_workerThread->wait();
+        if (!m_workerThread->wait(2000)) {
+            m_workerThread->terminate();
+        }
         delete m_workerThread;
         m_workerThread = nullptr;
     }
@@ -266,6 +269,7 @@ void MainWindow::onStop()
         worker = nullptr;
     }
 
+    m_isProcessing = false;
     onWorkerFinished();
 }
 
@@ -342,8 +346,14 @@ void MainWindow::refreshComboBoxFiles(const QString &path) {
 void MainWindow::updateFileList() {
     QString path = m_lineSearchPath->text();
     if (path.isEmpty() || !QDir(path).exists()) return;
+    QSet<QString> previouslyChecked;
+    for (int i = 0; i < m_filesList->count(); ++i) {
+        QListWidgetItem* item = m_filesList->item(i);
+        if (item->checkState() == Qt::Checked) {
+            previouslyChecked.insert(item->text());
+        }
+    }
     refreshComboBoxFiles(path);
-
     QDir dir(path);
     QString currentFilter = m_comboTypeFiles->currentText();
     QString mask = "*";
@@ -354,10 +364,8 @@ void MainWindow::updateFileList() {
             mask = "*." + currentFilter.mid(start, end - start);
         }
     }
-
     dir.setNameFilters(QStringList() << mask);
     QStringList files = dir.entryList(QDir::Files | QDir::System | QDir::Hidden | QDir::NoDotAndDotDot);
-
     m_filesList->clear();
     bool isSeparatelyMode = m_separatelyCheck->isChecked();
 
@@ -365,7 +373,11 @@ void MainWindow::updateFileList() {
         QListWidgetItem* item = new QListWidgetItem(fileName);
         if (isSeparatelyMode) {
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-            item->setCheckState(Qt::Unchecked);
+            if (previouslyChecked.contains(fileName)) {
+                item->setCheckState(Qt::Checked);
+            } else {
+                item->setCheckState(Qt::Unchecked);
+            }
         }
         m_filesList->addItem(item);
     }

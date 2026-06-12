@@ -30,45 +30,38 @@ void XorWorker::enqueueFiles(const QStringList &files) {
 }
 
 void XorWorker::setPaused(bool paused) {
-    if (m_isPaused != paused) {
-        m_isPaused = paused;
-        if (m_isPaused) {
-            emit logMessage("Обработка приостановлена.");
-        } else {
-            emit logMessage("Обработка возобновлена.");
-            if (!m_taskQueue.isEmpty()) {
-                emit requestNextFile();
-            }
-        }
+    qDebug() << "DEBUG: setPaused вызван с =" << paused;
+    m_isPaused.store(paused);
+    if (!paused) {
+        qDebug() << "DEBUG: Разбудка потоков (wakeAll)";
+        m_pauseMutex.lock();
+        m_pauseCond.wakeAll();
+        m_pauseMutex.unlock();
     }
 }
 
 void XorWorker::processNextFile() {
-    if (m_isPaused || m_taskQueue.isEmpty()) {
-        return;
-    }
+    if (m_taskQueue.isEmpty()) return;
 
     QString fileName = m_taskQueue.dequeue();
     QString fullIn = QString::fromStdString(m_config.inputPath) + "/" + fileName;
     QString outDir = QString::fromStdString(m_config.outputPath);
     QString fullOut = outDir + "/" + fileName;
 
-    // Защита: Проверяем физическое существование файла на диске перед обработкой
     if (!QFile::exists(fullIn)) {
         m_processedFiles.insert(fileName);
         emit requestNextFile();
         return;
     }
 
-    // Логика конфликтов имён файлов
     if (QFile::exists(fullOut)) {
-        if (m_config.conflictStrategy == 0) { // Пропустить
+        if (m_config.conflictStrategy == 0) {
             emit logMessage("Пропуск (уже существует): " + fileName);
             m_processedFiles.insert(fileName);
             emit requestNextFile();
             return;
         }
-        else if (m_config.conflictStrategy == 2) { // Переименовать (Индекс)
+        else if (m_config.conflictStrategy == 2) {
             QFileInfo fi(fileName);
             int counter = 1;
             do {
@@ -80,15 +73,17 @@ void XorWorker::processNextFile() {
     emit logMessage("Обработка: " + fileName);
     m_lastReportedProgress = -1;
 
+    auto progressFunc = [this](int percent) {
+        if (percent > m_lastReportedProgress) {
+            m_lastReportedProgress = percent;
+            emit progressUpdated(percent);
+        }
+    };
+
     bool success = m_engine.crypto(fullIn.toStdString().c_str(),
                                    fullOut.toStdString().c_str(),
-                                   m_config.mask,
-                                   [this](int percent) {
-                                       if (percent > m_lastReportedProgress) {
-                                           m_lastReportedProgress = percent;
-                                           emit progressUpdated(percent);
-                                       }
-                                   });
+                                   m_config.mask,progressFunc,
+                                   &m_isPaused, &m_pauseMutex, &m_pauseCond);
 
     if (success) {
         emit logMessage("Готово: " + fileName);
@@ -103,11 +98,19 @@ void XorWorker::processNextFile() {
         m_processedFiles.insert(fileName);
     }
 
-    // Режим таймера (задержка между файлами)
     if (m_config.isTimerMode && m_config.intervalS > 0) {
-        QThread::msleep(m_config.intervalS * 1000);
+        m_pauseMutex.lock();
+        if (m_isPaused.load()) {
+            m_pauseCond.wait(&m_pauseMutex);
+        } else {
+            m_pauseCond.wait(&m_pauseMutex, m_config.intervalS);
+        }
+        m_pauseMutex.unlock();
     }
 
-    // Запрашиваем следующий файл из очереди
-    emit requestNextFile();
+    if (m_isAlive && !m_taskQueue.isEmpty()) {
+        emit requestNextFile();
+    } else {
+        emit finished();
+    }
 }

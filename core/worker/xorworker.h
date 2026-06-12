@@ -10,6 +10,9 @@
 #include <QThread>
 #include <QQueue>
 #include <QSet>
+#include <QMutex>
+#include <atomic>
+#include <QWaitCondition>
 #include "../libXorEngine.h"
 #include "../TaskConfig.h"
 
@@ -31,6 +34,9 @@ public slots:
     void setPaused(bool paused);
 
 private:
+    std::atomic<bool> m_isPaused{false};
+    QMutex m_pauseMutex;
+    QWaitCondition m_pauseCond;
     TaskConfig m_config;
     int m_currentIndex = 0;
     int m_lastReportedProgress = -1;
@@ -38,7 +44,6 @@ private:
     bool m_isAlive;
     QQueue<QString> m_taskQueue;
     QSet<QString> m_processedFiles;
-    bool m_isPaused = false;
 };
 
 #endif // XORWORKER_H
